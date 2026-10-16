@@ -10,7 +10,10 @@ def test_health():
     assert response.json() == {'status': 'ok'}
 
 
+
 def test_pagina_inicio():
-    response = client.get('/')
+    response = client.get("/")
     assert response.status_code == 200
-    assert 'API_URL' in response.text
+    assert "text/html" in response.headers["content-type"]
+    assert "<html" in response.text.lower()
+
