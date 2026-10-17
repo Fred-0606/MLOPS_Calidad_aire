@@ -26,12 +26,20 @@ mlops-aire/
 │   ├── 09_GLOSARIO.md
 │   ├── 10_VALIDACION_Y_LIMITACIONES.md
 │   ├── 11_REPOSITORIO_Y_MANTENIMIENTO.md
+│   ├── 12_APLICACION_WEB_PUBLICA.md
+│   ├── 13_BITACORA_DESPLIEGUE_2026.md
 │   └── assets/
 │       └── aire-studio-vista-previa.png
 └── .github/workflows/           ← Si ya existen workflows de pruebas / despliegue
 ```
 
 Los cuatro notebooks viven originalmente en Databricks. Puedes **opcionalmente** exportarlos a `notebooks/` en el repositorio para dar trazabilidad al código, sin suponer que GitHub los ejecuta. La fuente de verdad de los Jobs y de las tablas del experimento sigue en el workspace de Databricks hasta que implementes sincronización automática.
+
+## Link público y actualización de GitHub
+
+El README debe incluir, cerca de su título, el botón/enlace **[ABRIR AIRE STUDIO EN AZURE ↗](https://web-app-calidad-d4fvd7f3byc9dtfh.mexicocentral-01.azurewebsites.net/)**. El documento `12_APLICACION_WEB_PUBLICA.md` concentra la dirección y las pruebas de disponibilidad. Actualiza allí el dominio si Azure crea una aplicación distinta; no reconstruyas URLs a partir del nombre del recurso.
+
+**No subas al repositorio el archivo ZIP entero.** Copia su `README.md` en la raíz y el contenido completo de `docs/` dentro del mismo directorio del repositorio. Mantén los archivos de aplicación existentes.
 
 ## Cómo añadir esta documentación al repositorio existente
 
@@ -65,7 +73,7 @@ Si usas ramas de revisión, crea una pull request y fusiona después de comproba
 | Nuevos meses / exportación histórica | `05_RESULTADOS_2020.md`, resumen del README y archivo `data/*.json.gz` |
 | Endpoint o autenticación | `07_API_Y_CONTRATOS.md` y `08_DESPLIEGUE_Y_OPERACION.md` |
 | UI o rutas de FastAPI | `06_GUIA_DE_LA_WEB.md`, `07_API_Y_CONTRATOS.md` y capturas |
-| Servicios Azure / GitHub Actions | `01_ARQUITECTURA.md`, `08_DESPLIEGUE_Y_OPERACION.md` |
+| Servicios Azure / GitHub Actions | `01_ARQUITECTURA.md`, `08_DESPLIEGUE_Y_OPERACION.md`, `12_APLICACION_WEB_PUBLICA.md` y `13_BITACORA_DESPLIEGUE_2026.md` |
 
 ## Reglas para un repositorio profesional
 

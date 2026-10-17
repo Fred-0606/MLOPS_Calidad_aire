@@ -2,6 +2,13 @@
 
 [← README](../README.md) · [Resultados](05_RESULTADOS_2020.md) · [API →](07_API_Y_CONTRATOS.md)
 
+## Abrir la interfaz publicada
+
+**[Abrir AIRE STUDIO en Azure ↗](https://web-app-calidad-d4fvd7f3byc9dtfh.mexicocentral-01.azurewebsites.net/)**  
+[Ver página dedicada al enlace y las pruebas](12_APLICACION_WEB_PUBLICA.md)
+
+El acceso web expone la aplicación, pero la consulta al modelo requiere que Azure App Service pueda autenticarse en Databricks y que su Serving endpoint esté `READY`. La disponibilidad actual de esos servicios se debe comprobar desde el navegador.
+
 ## ¿Qué se ve en la aplicación?
 
 La página AIRE STUDIO 2026 tiene dos usos complementarios:

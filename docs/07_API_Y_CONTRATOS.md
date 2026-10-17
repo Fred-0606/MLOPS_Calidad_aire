@@ -2,6 +2,14 @@
 
 [← README](../README.md) · [Manual web](06_GUIA_DE_LA_WEB.md)
 
+## URL de producción
+
+**Aplicación:** [AIRE STUDIO](https://web-app-calidad-d4fvd7f3byc9dtfh.mexicocentral-01.azurewebsites.net/)  
+**Prueba de servidor:** [`/health`](https://web-app-calidad-d4fvd7f3byc9dtfh.mexicocentral-01.azurewebsites.net/health)  
+**Swagger / OpenAPI:** [`/docs`](https://web-app-calidad-d4fvd7f3byc9dtfh.mexicocentral-01.azurewebsites.net/docs)
+
+Estos son los enlaces del dominio registrado en Azure. El cierre del workflow de GitHub Actions fue confirmado; la respuesta HTTP real y la inferencia deben verificarse independientemente.
+
 ## Componentes presentes en `main.py`
 
 `main.py` sirve el HTML, consulta el historial comprimido y delega las inferencias en Databricks. **No entrena, no monitorea nuevas distribuciones y no inicia Jobs**. La configuración de Databricks se obtiene de variables de entorno del proceso de Azure.

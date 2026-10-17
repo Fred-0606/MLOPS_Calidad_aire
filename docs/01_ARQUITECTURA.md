@@ -2,6 +2,12 @@
 
 [← README](../README.md) · [Metodología →](02_METODOLOGIA_MLOPS.md)
 
+## Acceso público al resultado desplegado
+
+**[Abrir AIRE STUDIO en Azure ↗](https://web-app-calidad-d4fvd7f3byc9dtfh.mexicocentral-01.azurewebsites.net/)** · [Ficha de acceso y pruebas](12_APLICACION_WEB_PUBLICA.md)
+
+El 16/10/2026 GitHub Actions completó su workflow de despliegue sobre `Web-App-Calidad`. La Web App utiliza Linux y un App Service Plan F1, en `Mexico Central`; el workflow en verde no sustituye la validación HTTP de `/health` y del Serving endpoint.
+
 ## Separación de responsabilidades
 
 El proyecto tiene **dos ciclos técnicos independientes** y una interfaz que los presenta:
@@ -84,6 +90,38 @@ La tabla `control` conserva eventos persistentes (no variables temporales). Un m
 - **Versión servida:** modelo y versión asociados al Serving endpoint. **No hay evidencia en los archivos de que cambiar el alias actualice automáticamente el endpoint**; se debe confirmar su configuración en Databricks.
 - **Backend de Azure:** reenvía solicitudes al endpoint que se indique con variables de entorno; no alberga ni entrena el modelo.
 - **Sitio web:** consume resultados del histórico empaquetado. No invoca `jobs/run-now` ni lanza simulaciones nuevas.
+
+## Infraestructura de la implementación actual
+
+| Capa | Recurso / configuración |
+| --- | --- |
+| Código fuente | `Fred-0606/MLOPS_Calidad_aire` (`main`) |
+| Publicación automatizada | GitHub Actions: `.github/workflows/main_web-app-calidad.yml` |
+| Identidad de despliegue | OIDC, identidad de usuario `oidc-msi-9e69` |
+| Web App | `Web-App-Calidad`, grupo `Resource_calidad_aire` |
+| Plan | `ASP-RecursosStudents-b107`, Free F1, grupo `Recursos_students` |
+| Región y plataforma | Mexico Central; App Service Linux + Python |
+| Dominio | [AIRE STUDIO](https://web-app-calidad-d4fvd7f3byc9dtfh.mexicocentral-01.azurewebsites.net/) |
+| Modelo / experimentación | Databricks, esquema `workspace.mlops_aire_demo_2020` |
+| Datos visualizados | JSON comprimido empaquetado en `data/`, generado desde Delta Gold |
+
+El App Service Plan está compartido con `mlops-students`, otra aplicación. Esto afecta el contexto de operación, pero **no hay evidencia suficiente para atribuirle** el bloqueo temporal por cuota F1 que se presentó durante el despliegue.
+
+```mermaid
+flowchart TB
+    U["Usuario · navegador"] -->|"HTTPS: /"| AZ["Web-App-Calidad · Azure App Service"]
+    U -->|"GET /api/history/*"| AZ
+    AZ -->|"archivo empaquetado"| H[("data/historical_features_2020.json.gz")]
+    AZ -->|"POST /api/history/predict · HTTPS"| EP["Databricks Model Serving"]
+    GH["GitHub · main"] --> CI["GitHub Actions · tests y deploy"]
+    CI --> AZ
+    DB["Databricks: NB01 → NB02 → NB03 → NB04"] --> DELTA[("Delta Gold / control")]
+    DELTA -. "exportación histórica" .-> H
+    DB --> REG["MLflow / UC: champion y challenger"]
+    REG -. "publicación separada" .-> EP
+```
+
+La identidad OIDC autentica **GitHub Actions frente a Azure**. Las variables `DATABRICKS_HOST`, `DATABRICKS_ENDPOINT` y `DATABRICKS_TOKEN` se configuran **dentro de la Web App** para la comunicación Azure → Databricks. Son credenciales y flujos distintos.
 
 ## Por qué App Service y no Container Apps
 

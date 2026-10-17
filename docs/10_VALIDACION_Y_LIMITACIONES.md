@@ -2,6 +2,19 @@
 
 [← README](../README.md) · [Arquitectura](01_ARQUITECTURA.md) · [Resultados](05_RESULTADOS_2020.md)
 
+## Estado de publicación en Azure (16/10/2026)
+
+| Evidencia | Estado |
+| --- | --- |
+| GitHub Actions: workflow de pruebas | **Verificado:** ejecución en verde |
+| GitHub Actions: workflow de despliegue a `Web-App-Calidad` | **Reportado y confirmado por el usuario:** ejecución en verde |
+| Azure: Web App en estado `Running` | **Verificado mediante captura de Overview** |
+| Acceso HTTP actual al [dominio público](https://web-app-calidad-d4fvd7f3byc9dtfh.mexicocentral-01.azurewebsites.net/) | **Pendiente de comprobación independiente** |
+| `GET /health` público devuelve 200 | **Pendiente:** abrir [este enlace](https://web-app-calidad-d4fvd7f3byc9dtfh.mexicocentral-01.azurewebsites.net/health) y registrar la respuesta |
+| Nueva inferencia real en Azure → Databricks | **Pendiente:** probar `POST /api/history/predict` y verificar la versión efectiva del endpoint |
+
+La disponibilidad de GitHub Actions y Azure es evidencia de **publicación**, no de inferencia exitosa. [Checklist de acceso público](12_APLICACION_WEB_PUBLICA.md).
+
 ## Matriz de verificación
 
 | Afirmación | Evidencia disponible | Estado / alcance |
@@ -44,6 +57,12 @@ PSI es una heurística; el umbral 0,20 no procede de una validación estadístic
 Mover alias `champion` no garantiza que un endpoint activo se actualice. `main.py` actual no devuelve el ID de versión servida y no incluye autenticación para consultas públicas. Antes de publicar a terceros, comprobar configuración de Serving, permisos, tasa de invocaciones y límites de gasto. La clave de Databricks no debe publicarse ni en documentos ni en el frontend.
 
 ## Pruebas recomendadas (checklist)
+
+- [x] GitHub Actions finalizó el workflow de despliegue tras recuperarse el estado de cuota.
+- [x] Azure mostró la Web App `Web-App-Calidad` en estado `Running`.
+- [ ] Se accede al [dominio público](12_APLICACION_WEB_PUBLICA.md) y carga AIRE STUDIO.
+- [ ] `/health` público devuelve JSON y HTTP 200.
+
 
 - [ ] Ocho meses `2020-01`...`2020-08` aparecen con cuatro eventos (`prepare`, `train`, `promotion`, `monitor`).
 - [ ] `gold_monitoring` tiene ocho registros y `gold_predictions` contiene ambos nombres de estación.

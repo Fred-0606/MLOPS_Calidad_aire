@@ -1,77 +1,105 @@
-# AIRE STUDIO | Predicción horaria de PM2.5 con MLOps
+# AIRE STUDIO | Predicción de PM2.5 y ciclo MLOps
 
-**Laboratorio de machine learning y MLOps · Databricks + MLflow + GitHub Actions + Azure App Service**
+**Simulación histórica de enero a agosto de 2020 · Databricks + MLflow + GitHub Actions + Azure App Service**
 
-> **Objetivo.** Predecir la concentración de PM2.5 una hora adelante en las estaciones Santa Cruz y San Francisco, y demostrar cómo se supervisa un modelo: entrenamiento, evaluación temporal, promoción de versiones, monitoreo de drift y decisiones de reentrenamiento.
+## Acceder a la aplicación web pública
 
-![Vista real de AIRE STUDIO](docs/assets/aire-studio-vista-previa.png)
+### **[ABRIR AIRE STUDIO EN AZURE ↗](https://web-app-calidad-d4fvd7f3byc9dtfh.mexicocentral-01.azurewebsites.net/)**
 
-## Resumen del proyecto
+**Dirección directa:** https://web-app-calidad-d4fvd7f3byc9dtfh.mexicocentral-01.azurewebsites.net/  
+**Prueba de salud de la API:** [abrir `/health`](https://web-app-calidad-d4fvd7f3byc9dtfh.mexicocentral-01.azurewebsites.net/health)  
+**Guía de acceso e interpretación:** [Aplicación web pública](docs/12_APLICACION_WEB_PUBLICA.md)
 
-| Dimensión | Implementación |
+> **Estado documentado (16 de octubre de 2026):** el workflow de GitHub Actions que publica en Azure terminó correctamente y Azure mostró la Web App en estado `Running`. Aún debe comprobarse, desde un navegador, que la URL pública responde, que `/health` devuelve `{"status":"ok"}` y que la nueva inferencia puede consultar Databricks. Una ejecución verde no equivale a esas tres comprobaciones.
+
+![AIRE STUDIO: vista de la interfaz](docs/assets/aire-studio-vista-previa.png)
+
+## ¿Qué hace el proyecto?
+
+AIRE STUDIO permite explorar la predicción **una hora adelante de la concentración de PM2.5** en las estaciones **Santa Cruz** y **San Francisco**, a partir de datos históricos publicados en [datos.gov.co](https://www.datos.gov.co/resource/58ct-h586.json). Reproduce una simulación mensual de ocho meses y muestra cómo las reglas de *drift*, degradación del MAE y revisión programada conducen a decisiones de reentrenamiento.
+
+La aplicación también ofrece un calendario de fechas y horas válidas para comparar lo que predijo el **champion histórico**, lo que se **observó realmente una hora después** y, bajo demanda, lo que devuelve **el modelo actualmente publicado en Databricks Model Serving** para las mismas 13 variables.
+
+### Resultados históricos del experimento
+
+| Indicador | Resultado |
 | --- | --- |
-| Problema | Regresión de concentración horaria de PM2.5, horizonte de **1 hora** |
-| Origen | API pública Socrata de datos.gov.co, recurso `58ct-h586` |
-| Ámbito | Estaciones `santa_cruz` y `san_francisco` |
-| Experimento | Simulación cronológica: **enero–agosto de 2020** |
-| Procesamiento | Cuatro notebooks en Databricks: ingesta → entrenamiento → promoción → monitoreo |
-| Registro del modelo | MLflow + Unity Catalog, alias `challenger` y `champion` |
-| Almacenamiento | Delta Lake; capas bronze, silver y gold |
-| Evaluación | MAE, RMSE y referencia de persistencia (`ŷ[t+1] = PM2.5[t]`) |
-| Drift | PSI sobre anomalía `pm25 - mean_24` por estación; KS complementario |
-| Presentación | AIRE STUDIO: histórico, gráficos, calendario e invocación del Serving endpoint |
-| Publicación web | FastAPI en **Azure App Service** (`Microsoft.Web`), sin Azure Container Apps (`Microsoft.App`) |
+| Periodo | Enero–agosto de 2020, ocho ciclos cerrados |
+| Estaciones | `santa_cruz` y `san_francisco` |
+| Etapas por mes | `prepare`, `train`, `promotion`, `monitor` |
+| Predicciones exportadas | **11.564** (19 sin observación objetivo disponible) |
+| Horas válidas reconstruidas para el calendario | **11.089** |
+| Peor MAE mensual | **7,570**, marzo |
+| MAE abril | **2,241**, con champion v5 |
+| Drift de anomalía | Detectado en marzo, abril y mayo |
+| Champion utilizado por mes | v1 enero–marzo; v5 abril; v6 mayo; v8 junio–agosto |
 
-### Resultados históricos verificados
+Estas métricas describen la **simulación histórica**, no una evaluación de emisiones o concentraciones en tiempo real. Comparar el MAE entre meses no demuestra por sí solo una mejora causal por el cambio de modelo. [Resultados completos y razones de reentrenamiento →](docs/05_RESULTADOS_2020.md)
 
-- **8 meses** cerrados, cada uno con `prepare`, `train`, `promotion` y `monitor`.
-- **11.564 predicciones** guardadas en `gold_predictions`; **19** carecen de objetivo observado para comparar.
-- El MAE mensual pasó de **7,570 en marzo** a **2,241 en abril**. Esto es una comparación de meses distintos, **no** una estimación causal aislada del efecto de reentrenar.
-- Versiones de champion utilizadas: **v1** (enero–marzo), **v5** (abril), **v6** (mayo) y **v8** (junio–agosto).
-- La regla de PSI de la anomalía dio señal de drift en **marzo, abril y mayo**. Una solicitud de entrenamiento no obliga a promover una versión.
-
-[Ver tabla completa de resultados y motivos →](docs/05_RESULTADOS_2020.md)
-
-## Arquitectura en una mirada
+## Arquitectura implementada
 
 ```mermaid
 flowchart LR
-    A[API datos.gov.co / Socrata] --> B[NB01 · Bronze + Silver]
-    B --> C[NB02 · Entrenar y registrar]
-    C --> D[NB03 · Evaluar / promover]
-    D --> E[NB04 · Predecir / monitorear]
-    E --> F[(Delta Gold + control)]
-    E -. Solicitud para mes siguiente .-> C
-    C --> G[(MLflow / Unity Catalog)]
-    G --> H[Databricks Model Serving]
-    I[GitHub + Actions] --> J[Azure App Service / FastAPI]
-    J --> H
-    J --> K[Interfaz AIRE STUDIO]
-    F -. Exportación histórica previa .-> L[HTML + archivo histórico local]
-    L --> K
+    Fuente["datos.gov.co / Socrata"] --> NB1["Databricks NB01 · ingesta y features"]
+    NB1 --> NB2["NB02 · entrenamiento"]
+    NB2 --> NB3["NB03 · promoción champion"]
+    NB3 --> NB4["NB04 · predicción y drift"]
+    NB4 --> Delta[(Delta gold_predictions / gold_monitoring / control)]
+    NB2 --> ML[(MLflow / Unity Catalog)]
+    ML -. "publicación independiente" .-> Serving["Databricks Model Serving"]
+    Delta -. "exportación histórica" .-> Datos["JSON gzip en el repositorio"]
+    GitHub["GitHub · main"] --> Actions["GitHub Actions · build/deploy"]
+    Actions --> Azure["Azure App Service · Web-App-Calidad"]
+    Datos --> Azure
+    Usuario["Navegador"] <--> Azure
+    Azure -- "Nueva inferencia HTTPS" --> Serving
 ```
 
-**Dos trayectorias diferentes:** Databricks ejecuta y registra la simulación; Azure presenta los resultados históricos ya calculados y, si el endpoint está configurado, solicita una **nueva** predicción al modelo publicado. La web **no inicia Jobs ni reentrena automáticamente**.
+**Separación de responsabilidades:** Databricks realiza el entrenamiento, el seguimiento de drift y la simulación. GitHub versiona el código y automatiza su publicación. Azure App Service sirve la página AIRE STUDIO y FastAPI. Los resultados históricos se leen de un archivo incluido en la aplicación, **no de consultas en vivo a las tablas Delta**. La web **no inicia nuevos Jobs ni ejecuta reentrenamientos**.
 
-## Guía de lectura del repositorio
+**Versión del modelo:** la simulación terminó usando el champion **v8** en agosto, pero el Serving endpoint puede servir otra versión. La versión realmente desplegada debe verificarse en Databricks; cambiar el alias `champion` no garantiza actualizar el endpoint automáticamente.
 
-| Documento | ¿Qué responde? |
+[Diagrama detallado y componentes →](docs/01_ARQUITECTURA.md)
+
+## Publicación en Azure y GitHub
+
+| Elemento | Configuración documentada |
 | --- | --- |
-| [01 · Arquitectura](docs/01_ARQUITECTURA.md) | ¿Qué hace cada plataforma y cómo fluyen los datos? |
-| [02 · Metodología MLOps](docs/02_METODOLOGIA_MLOPS.md) | ¿Qué sucede mes a mes y cómo se evita utilizar el futuro? |
-| [03 · Datos y variables](docs/03_DATOS_Y_VARIABLES.md) | ¿Cuáles son las 13 entradas y cómo se construyen? |
-| [04 · Drift y reentrenamiento](docs/04_DRIFT_REENTRENAMIENTO_Y_PROMOCION.md) | ¿Cuándo se entrena y cuándo se promueve? |
-| [05 · Resultados 2020](docs/05_RESULTADOS_2020.md) | ¿Cómo se interpretan las métricas, PSI y cambios de champion? |
-| [06 · Manual de la interfaz](docs/06_GUIA_DE_LA_WEB.md) | ¿Qué significa cada tarjeta o cada predicción? |
-| [07 · Contratos API](docs/07_API_Y_CONTRATOS.md) | ¿Qué solicita y responde FastAPI? |
-| [08 · Despliegue y operación](docs/08_DESPLIEGUE_Y_OPERACION.md) | ¿Cómo subir, publicar, probar y diagnosticar? |
-| [09 · Glosario](docs/09_GLOSARIO.md) | Definiciones precisas de ML, datos, estadística y nube |
-| [10 · Validación y límites](docs/10_VALIDACION_Y_LIMITACIONES.md) | ¿Qué está verificado, qué no y qué exige producción? |
-| [11 · Organización GitHub](docs/11_REPOSITORIO_Y_MANTENIMIENTO.md) | ¿Cómo organizar el repositorio y mantener los archivos? |
+| Repositorio | [`Fred-0606/MLOPS_Calidad_aire`](https://github.com/Fred-0606/MLOPS_Calidad_aire) |
+| Rama de despliegue | `main` |
+| Workflow de publicación | `.github/workflows/main_web-app-calidad.yml` |
+| Workflow independiente | `Pruebas de la API` (CI de pruebas) |
+| Aplicación Azure | `Web-App-Calidad` |
+| Grupo de recursos Web App | `Resource_calidad_aire` |
+| App Service Plan | `ASP-RecursosStudents-b107` (Free F1), en `Recursos_students` |
+| Sistema y región | Linux, Mexico Central |
+| Autenticación del workflow | OIDC con identidad administrada de usuario `oidc-msi-9e69` |
+| Proveedor Azure | `Microsoft.Web` (sin Azure Container Apps / `Microsoft.App`) |
+| Dominio público | [Abrir AIRE STUDIO](https://web-app-calidad-d4fvd7f3byc9dtfh.mexicocentral-01.azurewebsites.net/) |
 
-## Puesta en marcha local
+GitHub Actions informó una publicación satisfactoria el **16/10/2026**, tras resolver la identidad OIDC y esperar la recuperación de una cuota F1 que había dejado el sitio en `Quota exceeded`. La disponibilidad funcional se valida por separado con pruebas HTTP. [Despliegue y diagnóstico →](docs/08_DESPLIEGUE_Y_OPERACION.md)
 
-Necesitas Python compatible con los paquetes de `requirements.txt`, acceso al código y el archivo histórico. Desde la raíz del proyecto, en PowerShell:
+## Guía de documentación
+
+| Archivo | Qué explica |
+| --- | --- |
+| [01 · Arquitectura](docs/01_ARQUITECTURA.md) | Componentes y flujo de datos, modelos y despliegue |
+| [02 · Metodología MLOps](docs/02_METODOLOGIA_MLOPS.md) | Orquestación secuencial de notebooks y experimentación temporal |
+| [03 · Datos y variables](docs/03_DATOS_Y_VARIABLES.md) | Fuente, calidad y las 13 características de entrada |
+| [04 · Drift y reentrenamiento](docs/04_DRIFT_REENTRENAMIENTO_Y_PROMOCION.md) | PSI, KS, MAE, gates y champion/challenger |
+| [05 · Resultados de 2020](docs/05_RESULTADOS_2020.md) | Métricas por mes y decisiones históricas |
+| [06 · Guía de la interfaz](docs/06_GUIA_DE_LA_WEB.md) | Interpretar gráficos y las tres cifras de predicción |
+| [07 · API y contratos](docs/07_API_Y_CONTRATOS.md) | Rutas FastAPI y formato `dataframe_split` |
+| [08 · Despliegue](docs/08_DESPLIEGUE_Y_OPERACION.md) | GitHub Actions, OIDC, Azure y verificación |
+| [09 · Glosario](docs/09_GLOSARIO.md) | Vocabulario técnico y operativo |
+| [10 · Validación y límites](docs/10_VALIDACION_Y_LIMITACIONES.md) | Qué está demostrado y qué falta probar |
+| [11 · Organización de GitHub](docs/11_REPOSITORIO_Y_MANTENIMIENTO.md) | Estructura y mantenimiento documental |
+| **[12 · Aplicación web pública](docs/12_APLICACION_WEB_PUBLICA.md)** | **Acceso directo a la URL, comprobaciones y uso público** |
+| [13 · Bitácora de despliegue](docs/13_BITACORA_DESPLIEGUE_2026.md) | Incidencias resueltas y estado de publicación |
+
+## Ejecutar el código localmente
+
+En PowerShell, desde la raíz del proyecto:
 
 ```powershell
 py -m venv .venv
@@ -80,16 +108,14 @@ python -m pip install -r requirements.txt
 python -m uvicorn main:app --reload
 ```
 
-Abre `http://127.0.0.1:8000/` y verifica `http://127.0.0.1:8000/health`.
+Abre `http://127.0.0.1:8000/` y `http://127.0.0.1:8000/health`. El calendario necesita `data/historical_features_2020.json.gz`. Para la **nueva inferencia** se configuran en el **servidor**, nunca en el HTML, las variables `DATABRICKS_HOST`, `DATABRICKS_ENDPOINT` y `DATABRICKS_TOKEN`.
 
-La reproducción histórica funciona con `static/index.html` y `data/historical_features_2020.json.gz`. La **nueva inferencia** requiere configurar **solo en el servidor** `DATABRICKS_HOST`, `DATABRICKS_ENDPOINT` y `DATABRICKS_TOKEN` con autorización de consulta al endpoint. **No publiques credenciales en GitHub.**
+## Seguridad, transparencia y limitaciones
 
-## Estado y alcance
+- **Acceso público:** mientras no exista autenticación y límites de peticiones, los visitantes pueden provocar consultas al Serving endpoint con posibles costos. El sitio debe tratarse como **demostración académica**, no servicio productivo sin controles.
+- **Datos históricos:** no se actualizan automáticamente desde Databricks; volver a exportarlos implica generar y publicar una nueva versión del artefacto.
+- **Diferencia entre modelos:** el champion de agosto de 2020 no garantiza la versión que esté atendiendo hoy desde Serving.
+- **Zona horaria:** la interfaz emplea marcas `Z` en los registros exportados; debe verificarse la zona de origen antes de interpretar las horas como UTC civil real.
+- **Alcance:** la aplicación no predice la calidad del aire en tiempo real, no detecta nuevos drift al pulsar un botón y no reentrena desde Azure.
 
-- **Ejecutado y validado con resultados:** simulación enero–agosto 2020, exportación histórica, API de consulta local y visualización web.
-- **Depende de la configuración externa:** consulta real de `/api/history/predict` al Databricks Serving endpoint; verifica el estado `READY` y su **versión desplegada**, que no cambia automáticamente al mover el alias de MLflow.
-- **No implementado en la web actual:** ejecución de nuevos Jobs, simulaciones en tiempo real, ingestión continua o actualización automática de los CSV históricos.
-
-**Nota temporal:** los archivos exportados y el calendario web representan fechas con sufijo `Z`/UTC; el notebook de ingesta interpreta las fechas de la fuente sin una conversión explícita de huso horario. Debe validarse el huso de origen antes de usar los sellos temporales como hora civil UTC en una aplicación operativa.
-
-**Ámbito:** demostración académica/histórica; no constituye sistema oficial de alerta sanitaria ni medición ambiental en vivo.
+[Ver validaciones y limitaciones en detalle →](docs/10_VALIDACION_Y_LIMITACIONES.md)
